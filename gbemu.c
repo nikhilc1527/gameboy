@@ -1,6 +1,9 @@
+#define SDL_MAIN_USE_CALLBACKS
+
 #include <stdio.h>
 #include <string.h>
-#include <SDL.h>
+#include <SDL3/SDL.h>
+#include <SDL3/SDL_main.h>
 
 #define BTN_A       0
 #define BTN_B       1
@@ -90,16 +93,17 @@ byte ram_size, ram_bank;
 int ram_enable;
 int mbc1_mode;
 int mbc3_rtc_reg;
+int pokemon;
+char* p_table[0x100];
 
-SDL_Window* win;
+SDL_Window* win, *pkm_win;
 SDL_Renderer* rnd;
 SDL_Event evt;
 
-char* rom_name = "pokered.gb";
-int FCT_X = 5, FCT_Y = 5;
+char* rom_name = "roms/tellinglys.gb";
+int FCT_X = 3, FCT_Y = 3;
 int dis = 0;
 int dbg_time = 5000;
-int pokemon = 0;
 
 void redraw();
 
@@ -114,24 +118,78 @@ void init_reg() {
     redraw();
     div_cnt = 0;
     tim_cnt = 0;
+
+    memset(p_table, 0, sizeof(p_table));
+    p_table[0x7F] = "␠";
+    for (int i = 0x80; i <= 0x99; i++) {
+        p_table[i] = malloc(2);
+        p_table[i][0] = i - 0x80 + 'A';
+        p_table[i][1] = 0;
+    }
+    p_table[0x9A] = "(";
+    p_table[0x9B] = ")";
+    p_table[0x9C] = ":";
+    p_table[0x9D] = ";";
+    p_table[0x9E] = "[";
+    p_table[0x9F] = "]";
+    for (int i = 0xA0; i <= 0xB9; i++) {
+        p_table[i] = malloc(2);
+        p_table[i][0] = i - 0xA0 + 'a';
+        p_table[i][1] = 0;
+    }
+    p_table[0xBA] = "é";
+    p_table[0xBB] = "'d";
+    p_table[0xBC] = "'l";
+    p_table[0xBD] = "'s";
+    p_table[0xBE] = "'t";
+    p_table[0xBF] = "'v";
+    p_table[0xE0] = "'";
+    p_table[0xE1] = "PK";
+    p_table[0xE2] = "MN";
+    p_table[0xE3] = "-";
+    p_table[0xE4] = "'r";
+    p_table[0xE5] = "'m";
+    p_table[0xE6] = "?";
+    p_table[0xE7] = "!";
+    p_table[0xE8] = ".";
+    p_table[0xE9] = "ァ";
+    p_table[0xEA] = "ゥ";
+    p_table[0xEB] = "ェ";
+    p_table[0xEC] = "▷";
+    p_table[0xEE] = "▼";
+    p_table[0xEF] = "♂";
+    p_table[0xF1] = "×";
+    p_table[0xF2] = ".";
+    p_table[0xF3] = "/";
+    p_table[0xF4] = ",";
+    p_table[0xF5] = "♀";
+    for (int i = 0xF6; i <= 0xFF; i++) {
+        p_table[i] = malloc(2);
+        p_table[i][0] = i - 0xF6 + '0';
+        p_table[i][1] = 0;
+    }
 }
 
 int init_dsp() {
-    if (SDL_Init(SDL_INIT_EVERYTHING)) {
-        printf("ERROR CREATING WINDOW: %s\n", SDL_GetError());
+    if (!SDL_Init(SDL_INIT_EVENTS | SDL_INIT_VIDEO)) {
+        printf("ERROR INITIALIZING SDL: %s\n", SDL_GetError());
         return 1;
     }
-    win = SDL_CreateWindow(title, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, SCRN_WIDTH * FCT_X, SCRN_HEIGHT * FCT_Y, SDL_WINDOW_SHOWN);
-    rnd = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
+    if (!SDL_CreateWindowAndRenderer(title, SCRN_WIDTH * FCT_X, SCRN_HEIGHT * FCT_Y, 0, &win, &rnd)) {
+        printf("ERROR CREATING WINDOW & RENDERER: %s\n", SDL_GetError());
+        return 1;
+    }
+    // pkm_win = SDL_CreateWindow("POKEMON DATA", SCRN_WIDTH * FCT_X / 2, SCRN_HEIGHT * FCT_Y, pokemon ? 0 : SDL_WINDOW_HIDDEN);
     return 0;
 }
 
 int cart_info() {
     memset(title, 0, sizeof(title));
     dbyte i = 0x0134;
-    for (; i <= 0x0142; i++) {
-        if (!mem[i]) break;
-        title[i - 0x0134] = mem[i];
+    for (; i <= 0x0142 && mem[i]; i++) title[i - 0x0134] = mem[i];
+    if (!strcmp(title, "POKEMON RED") || !strcmp(title, "POKEMON BLUE")) {
+        printf("POKEMON DETECTED\n");
+        pokemon = 1;
     }
     cart_type = mem[0x0147];
     rom_size = mem[0x0148];
@@ -221,12 +279,16 @@ void load() {
     }
 }
 
-// Sets the right checksum for pokemon red and blue so you
-// can run it after hacking and stuff
-void set_checksum() {
+// Sets the right checksum so you can run it after hacking and stuff
+void p_set_checksum() {
     byte sum = 255;
     for (dbyte loc = 0x2598; loc <= 0x3522; loc++) sum -= extern_ram[loc];
     extern_ram[0x3523] = sum;
+}
+
+// From pokemon string format to a string
+char* p_string_convert(int n, byte encoded[]) {
+
 }
 
 byte no_mbc_read_rom(dbyte loc) {
@@ -1061,7 +1123,6 @@ void upd_lcd() {
     intr_vblank_lcd(stat, prev_mode, curr_mode);
     stat &= ~(0b11);
     stat |= curr_mode;
-    // printf("Mode: $%02X\nLY: $%02X\nLCDC: $%02X\n", curr_mode, LY, LCDC);
     if (LY == LYC) st_bt(&stat, 2);
     else cl_bt(&stat, 2);
     w_mem(0xFF41, stat);
@@ -1105,72 +1166,6 @@ int upd_in() {
     }
     intr_joypad(JOYP, curr_joyp);
     w_mem(0xFF00, curr_joyp);
-    return 0;
-}
-
-int handle_in() {
-    while (SDL_PollEvent(&evt)) {
-        switch (evt.type) {
-        case SDL_QUIT: return 1;
-        case SDL_KEYDOWN:
-            switch (evt.key.keysym.sym) {
-            case SDLK_s:
-                in[BTN_A] = 1;
-                break;
-            case SDLK_a:
-                in[BTN_B] = 1;
-                break;
-            case SDLK_RETURN:
-                in[BTN_START] = 1;
-                break;
-            case SDLK_LSHIFT: case SDLK_RSHIFT:
-                in[BTN_SELECT] = 1;
-                break;
-            case SDLK_UP:
-                in[BTN_UP] = 1;
-                break;
-            case SDLK_DOWN:
-                in[BTN_DOWN] = 1;
-                break;
-            case SDLK_LEFT:
-                in[BTN_LEFT] = 1;
-                break;
-            case SDLK_RIGHT:
-                in[BTN_RIGHT] = 1;
-                break;
-            }
-            break;
-        case SDL_KEYUP:
-            switch (evt.key.keysym.sym) {
-            case SDLK_s:
-                in[BTN_A] = 0;
-                break;
-            case SDLK_a:
-                in[BTN_B] = 0;
-                break;
-            case SDLK_RETURN:
-                in[BTN_START] = 0;
-                break;
-            case SDLK_LSHIFT: case SDLK_RSHIFT:
-                in[BTN_SELECT] = 0;
-                break;
-            case SDLK_UP:
-                in[BTN_UP] = 0;
-                break;
-            case SDLK_DOWN:
-                in[BTN_DOWN] = 0;
-                break;
-            case SDLK_LEFT:
-                in[BTN_LEFT] = 0;
-                break;
-            case SDLK_RIGHT:
-                in[BTN_RIGHT] = 0;
-                break;
-            }
-            break;
-        }
-    }
-    upd_in();
     return 0;
 }
 
@@ -1349,24 +1344,22 @@ void redraw() {
 void rndr() {
     for (int i = 0; i < SCRN_HEIGHT; i++) {
         for (int j = 0; j < SCRN_WIDTH; j++) {
-            if (upd[i][j]) {
-                int clr = dsp[i][j];
-                if (clr == CLR_WHT) clr = HEX_WHT;
-                if (clr == CLR_L_GRY) clr = HEX_L_GREY;
-                if (clr == CLR_D_GRY) clr = HEX_R_GREY;
-                if (clr == CLR_BLK) clr = HEX_BLK;
-                if (clr == CLR_EXT) clr = HEX_EXT;
-                byte r = (clr >> 8 * 2) & 0xFF;
-                byte g = (clr >> 8 * 1) & 0xFF;
-                byte b = (clr >> 8 * 0) & 0xFF;
-                SDL_SetRenderDrawColor(rnd, r, g, b, 0xFF);
-                SDL_Rect rct = { j * FCT_X, i * FCT_Y, FCT_X, FCT_Y };
-                SDL_RenderFillRect(rnd, &rct);
-            }
+            int clr = dsp[i][j];
+            if (clr == CLR_WHT) clr = HEX_WHT;
+            if (clr == CLR_L_GRY) clr = HEX_L_GREY;
+            if (clr == CLR_D_GRY) clr = HEX_R_GREY;
+            if (clr == CLR_BLK) clr = HEX_BLK;
+            if (clr == CLR_EXT) clr = HEX_EXT;
+            byte r = (clr >> 8 * 2) & 0xFF;
+            byte g = (clr >> 8 * 1) & 0xFF;
+            byte b = (clr >> 8 * 0) & 0xFF;
+            SDL_SetRenderDrawColor(rnd, r, g, b, SDL_ALPHA_OPAQUE);
+            SDL_FRect rct = { j * FCT_X, i * FCT_Y, FCT_X, FCT_Y };
+            SDL_RenderFillRect(rnd, &rct);
+            upd[i][j] = 0;
         }
     }
     SDL_RenderPresent(rnd);
-    memset(upd, 0, sizeof(upd));
 }
 
 int print_instr(byte instr, byte prfx);
@@ -1388,55 +1381,12 @@ int do_frame() {
         }
         upd_lcd();
         upd_tim(cyc);
-        if (handle_in()) return -1;
+        upd_in();
         upd_dma();
         chck_intr();
     }
     rndr();
     return tot_cyc;
-}
-
-int main(int argc, char* argv[]) {
-    init_reg();
-    FILE* boot_rom_file;
-    FILE* rom_file;
-    fopen_s(&boot_rom_file, "bootrom.rom", "rb");
-    fopen_s(&rom_file, rom_name, "rb");
-    int loop = 1;
-    if (!boot_rom_file) {
-        printf("COULD NOT OPEN BOOT ROM\n");
-        loop = 0;
-    }
-    else fread(brom, 0x100, 1, boot_rom_file);
-    if (!rom_file) {
-        printf("COULD NOT OPEN ROM\n");
-        loop = 0;
-    }
-    else fread(mem, 0x8000, 1, rom_file); // Put only first bank in memory
-    if (cart_info()) loop = 0;
-    fopen_s(&rom_file, rom_name, "rb");
-    if (!rom_file);
-    else fread(rom, (1LL << rom_size) * 0x8000, 1, rom_file);
-    if (loop && init_dsp()) loop = 0;
-    load();
-    if(pokemon) set_checksum();
-    printf("\n");
-    while (loop) {
-        Uint32 start = SDL_GetTicks();
-        int cyc = do_frame();
-        Uint32 end = SDL_GetTicks();
-        if (cyc == -1) {
-            loop = 0;
-            continue;
-        }
-        Uint32 time_needed = (Uint32)(((float)cyc / (float)CPU_FREQ) * 1000.0);
-        Uint32 time_elapsed = end - start;
-        if (time_elapsed < time_needed) SDL_Delay(time_needed - time_elapsed);
-    }
-    save();
-    dbg();
-    printf("DONE\n");
-    return 0;
 }
 
 int print_instr(byte instr, byte prfx) {
@@ -3410,4 +3360,122 @@ int do_instr() {
         }
     }
     return 0;
+}
+
+SDL_AppResult SDL_AppInit(void** apstate, int argc, char* argv[]) {
+    printf("INITIALIZING\n");
+    init_reg();
+    FILE* boot_rom_file;
+    FILE* rom_file;
+    fopen_s(&boot_rom_file, "bootrom.rom", "rb");
+    fopen_s(&rom_file, rom_name, "rb");
+    if (!boot_rom_file) {
+        printf("COULD NOT OPEN BOOT ROM\n");
+        return SDL_APP_FAILURE;
+    }
+    fread(brom, 0x100, 1, boot_rom_file);
+    printf("LOADED BOOT ROM\n");
+    if (!rom_file) {
+        printf("COULD NOT OPEN ROM\n");
+        return SDL_APP_FAILURE;
+    }
+    fread(mem, 0x8000, 1, rom_file); // Put only first bank in memory
+    printf("LOADED ROM\n");
+    if (cart_info()) return SDL_APP_FAILURE;
+    fopen_s(&rom_file, rom_name, "rb");
+    if (!rom_file);
+    else fread(rom, (1LL << rom_size) * 0x8000, 1, rom_file);
+    if (init_dsp()) return SDL_APP_FAILURE;
+    load();
+    if (pokemon) p_set_checksum();
+    return SDL_APP_CONTINUE;
+}
+
+
+SDL_AppResult SDL_AppIterate(void* appstate) {
+    Uint32 start = SDL_GetTicks();
+    int cyc = do_frame();
+    Uint32 end = SDL_GetTicks();
+    if (cyc == -1) return SDL_APP_FAILURE;
+    Uint32 time_needed = (Uint32)(((float)cyc / (float)CPU_FREQ) * 1000.0);
+    Uint32 time_elapsed = end - start;
+    if (time_elapsed < time_needed) SDL_Delay(time_needed - time_elapsed);
+    return SDL_APP_CONTINUE;
+}
+
+SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* evt) {
+    switch ((*evt).type) {
+    case SDL_EVENT_QUIT: return SDL_APP_SUCCESS;
+    case SDL_EVENT_KEY_DOWN:
+        switch ((*evt).key.key) {
+        case SDLK_S:
+            in[BTN_A] = 1;
+            break;
+        case SDLK_A:
+            in[BTN_B] = 1;
+            break;
+        case SDLK_RETURN:
+            in[BTN_START] = 1;
+            break;
+        case SDLK_LSHIFT: case SDLK_RSHIFT:
+            in[BTN_SELECT] = 1;
+            break;
+        case SDLK_UP:
+            in[BTN_UP] = 1;
+            break;
+        case SDLK_DOWN:
+            in[BTN_DOWN] = 1;
+            break;
+        case SDLK_LEFT:
+            in[BTN_LEFT] = 1;
+            break;
+        case SDLK_RIGHT:
+            in[BTN_RIGHT] = 1;
+            break;
+        }
+        break;
+    case SDL_EVENT_KEY_UP:
+        switch ((*evt).key.key) {
+        case SDLK_S:
+            in[BTN_A] = 0;
+            break;
+        case SDLK_A:
+            in[BTN_B] = 0;
+            break;
+        case SDLK_RETURN:
+            in[BTN_START] = 0;
+            break;
+        case SDLK_LSHIFT: case SDLK_RSHIFT:
+            in[BTN_SELECT] = 0;
+            break;
+        case SDLK_UP:
+            in[BTN_UP] = 0;
+            break;
+        case SDLK_DOWN:
+            in[BTN_DOWN] = 0;
+            break;
+        case SDLK_LEFT:
+            in[BTN_LEFT] = 0;
+            break;
+        case SDLK_RIGHT:
+            in[BTN_RIGHT] = 0;
+            break;
+        }
+        break;
+    }
+    return SDL_APP_CONTINUE;
+}
+
+void SDL_AppQuit(void* appstate, SDL_AppResult result) {
+    switch (result) {
+    case SDL_APP_SUCCESS:
+        printf("SUCCESS\n");
+        break;
+    case SDL_APP_FAILURE:
+        printf("FAILURE\n");
+        break;
+    }
+    save();
+    dbg();
+    printf("DONE\n");
 }
