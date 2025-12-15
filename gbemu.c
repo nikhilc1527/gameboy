@@ -1,3 +1,27 @@
+/* CUSTOMIZATION */
+
+#define HEX_WHT     0xeeeeee
+#define HEX_L_GREY  0xab00ff
+#define HEX_R_GREY  0x4c00a4
+#define HEX_BLK     0x31004a
+#define HEX_EXT     0xFF0000 // ignore this line
+
+// https://wiki.libsdl.org/SDL3/SDL_Keycode
+#define KEY_A SDLK_S
+#define KEY_B SDLK_A
+#define KEY_START SDLK_RETURN
+#define KEY_SELECT SDLK_LSHIFT
+#define KEY_UP SDLK_UP
+#define KEY_DOWN SDLK_DOWN
+#define KEY_LEFT SDLK_LEFT
+#define KEY_RIGHT SDLK_RIGHT
+
+char* rom_name = "pokered.gb";
+int FCT_X = 3, FCT_Y = 3;
+int dis = 0; // enable disassembly
+
+/* FILE START */
+
 #define SDL_MAIN_USE_CALLBACKS
 
 #include <stdio.h>
@@ -31,12 +55,6 @@
 #define FLG_N       6
 #define FLG_H       5
 #define FLG_C       4
-
-#define HEX_WHT     0xeeeeee
-#define HEX_L_GREY  0xab00ff
-#define HEX_R_GREY  0x4c00a4
-#define HEX_BLK     0x31004a
-#define HEX_EXT     0xFF0000
 
 #define INTR_VBLANK 0
 #define INTR_LCD    1
@@ -96,14 +114,9 @@ int mbc3_rtc_reg;
 int pokemon;
 char* p_table[0x100];
 
-SDL_Window* win, *pkm_win;
+SDL_Window* win, * pkm_win;
 SDL_Renderer* rnd;
 SDL_Event evt;
-
-char* rom_name = "roms/tellinglys.gb";
-int FCT_X = 3, FCT_Y = 3;
-int dis = 0;
-int dbg_time = 5000;
 
 void redraw();
 
@@ -253,8 +266,8 @@ void save() {
     case 0x13:
     {
         char file_name[30] = "";
-        strcat_s(file_name, sizeof(file_name), title);
-        strcat_s(file_name, sizeof(file_name), ".sav");
+        strcat(file_name, title);
+        strcat(file_name, ".sav");
         FILE* save_file = fopen(file_name, "wb");
         fwrite(extern_ram, 1, sizeof(extern_ram), save_file);
         fclose(save_file);
@@ -267,8 +280,8 @@ void load() {
     case 0x13:
     {
         char file_name[30] = "";
-        strcat_s(file_name, sizeof(file_name), title);
-        strcat_s(file_name, sizeof(file_name), ".sav");
+        strcat(file_name, title);
+        strcat(file_name, ".sav");
         FILE* save_file = fopen(file_name, "rb");
         if (!save_file) {
             printf("COULD NOT LOAD SAVE FILE\n");
@@ -279,7 +292,8 @@ void load() {
     }
 }
 
-// Sets the right checksum so you can run it after hacking and stuff
+/* Automatically set the correct checksum value after
+   hacking the save file                              */
 void p_set_checksum() {
     byte sum = 255;
     for (dbyte loc = 0x2598; loc <= 0x3522; loc++) sum -= extern_ram[loc];
@@ -1354,7 +1368,7 @@ void rndr() {
             byte g = (clr >> 8 * 1) & 0xFF;
             byte b = (clr >> 8 * 0) & 0xFF;
             SDL_SetRenderDrawColor(rnd, r, g, b, SDL_ALPHA_OPAQUE);
-            SDL_FRect rct = { j * FCT_X, i * FCT_Y, FCT_X, FCT_Y };
+            SDL_FRect rct = { (float) (j * FCT_X), (float) (i * FCT_Y), (float) FCT_X, (float) FCT_Y };
             SDL_RenderFillRect(rnd, &rct);
             upd[i][j] = 0;
         }
@@ -3367,8 +3381,8 @@ SDL_AppResult SDL_AppInit(void** apstate, int argc, char* argv[]) {
     init_reg();
     FILE* boot_rom_file;
     FILE* rom_file;
-    fopen_s(&boot_rom_file, "bootrom.rom", "rb");
-    fopen_s(&rom_file, rom_name, "rb");
+    boot_rom_file = fopen("bootrom.rom", "rb");
+    rom_file = fopen(rom_name, "rb");
     if (!boot_rom_file) {
         printf("COULD NOT OPEN BOOT ROM\n");
         return SDL_APP_FAILURE;
@@ -3382,7 +3396,7 @@ SDL_AppResult SDL_AppInit(void** apstate, int argc, char* argv[]) {
     fread(mem, 0x8000, 1, rom_file); // Put only first bank in memory
     printf("LOADED ROM\n");
     if (cart_info()) return SDL_APP_FAILURE;
-    fopen_s(&rom_file, rom_name, "rb");
+    rom_file = fopen(rom_name, "rb");
     if (!rom_file);
     else fread(rom, (1LL << rom_size) * 0x8000, 1, rom_file);
     if (init_dsp()) return SDL_APP_FAILURE;
@@ -3393,9 +3407,9 @@ SDL_AppResult SDL_AppInit(void** apstate, int argc, char* argv[]) {
 
 
 SDL_AppResult SDL_AppIterate(void* appstate) {
-    Uint32 start = SDL_GetTicks();
+    Uint32 start = (Uint32) SDL_GetTicks();
     int cyc = do_frame();
-    Uint32 end = SDL_GetTicks();
+    Uint32 end = (Uint32) SDL_GetTicks();
     if (cyc == -1) return SDL_APP_FAILURE;
     Uint32 time_needed = (Uint32)(((float)cyc / (float)CPU_FREQ) * 1000.0);
     Uint32 time_elapsed = end - start;
@@ -3408,56 +3422,56 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* evt) {
     case SDL_EVENT_QUIT: return SDL_APP_SUCCESS;
     case SDL_EVENT_KEY_DOWN:
         switch ((*evt).key.key) {
-        case SDLK_S:
+        case KEY_A:
             in[BTN_A] = 1;
             break;
-        case SDLK_A:
+        case KEY_B:
             in[BTN_B] = 1;
             break;
-        case SDLK_RETURN:
+        case KEY_START:
             in[BTN_START] = 1;
             break;
-        case SDLK_LSHIFT: case SDLK_RSHIFT:
+        case KEY_SELECT:
             in[BTN_SELECT] = 1;
             break;
-        case SDLK_UP:
+        case KEY_UP:
             in[BTN_UP] = 1;
             break;
-        case SDLK_DOWN:
+        case KEY_DOWN:
             in[BTN_DOWN] = 1;
             break;
-        case SDLK_LEFT:
+        case KEY_LEFT:
             in[BTN_LEFT] = 1;
             break;
-        case SDLK_RIGHT:
+        case KEY_RIGHT:
             in[BTN_RIGHT] = 1;
             break;
         }
         break;
     case SDL_EVENT_KEY_UP:
         switch ((*evt).key.key) {
-        case SDLK_S:
+        case KEY_A:
             in[BTN_A] = 0;
             break;
-        case SDLK_A:
+        case KEY_B:
             in[BTN_B] = 0;
             break;
-        case SDLK_RETURN:
+        case KEY_START:
             in[BTN_START] = 0;
             break;
-        case SDLK_LSHIFT: case SDLK_RSHIFT:
+        case KEY_SELECT:
             in[BTN_SELECT] = 0;
             break;
-        case SDLK_UP:
+        case KEY_UP:
             in[BTN_UP] = 0;
             break;
-        case SDLK_DOWN:
+        case KEY_DOWN:
             in[BTN_DOWN] = 0;
             break;
-        case SDLK_LEFT:
+        case KEY_LEFT:
             in[BTN_LEFT] = 0;
             break;
-        case SDLK_RIGHT:
+        case KEY_RIGHT:
             in[BTN_RIGHT] = 0;
             break;
         }
