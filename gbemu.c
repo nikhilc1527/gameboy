@@ -16,9 +16,11 @@
 #define KEY_LEFT SDLK_LEFT
 #define KEY_RIGHT SDLK_RIGHT
 
-char* rom_name = "pokered.gb";
+char* rom_loc = "pokered.gb";
+char* boot_rom_loc = "bootrom.rom";
 int FCT_X = 3, FCT_Y = 3;
 int dis = 0; // enable disassembly
+int pokemon = 0;
 
 /* FILE START */
 
@@ -111,7 +113,6 @@ byte ram_size, ram_bank;
 int ram_enable;
 int mbc1_mode;
 int mbc3_rtc_reg;
-int pokemon;
 char* p_table[0x100];
 
 SDL_Window* win, * pkm_win;
@@ -3381,8 +3382,8 @@ SDL_AppResult SDL_AppInit(void** apstate, int argc, char* argv[]) {
     init_reg();
     FILE* boot_rom_file;
     FILE* rom_file;
-    boot_rom_file = fopen("bootrom.rom", "rb");
-    rom_file = fopen(rom_name, "rb");
+    boot_rom_file = fopen(boot_rom_loc, "rb");
+    rom_file = fopen(rom_loc, "rb");
     if (!boot_rom_file) {
         printf("COULD NOT OPEN BOOT ROM\n");
         return SDL_APP_FAILURE;
@@ -3396,7 +3397,7 @@ SDL_AppResult SDL_AppInit(void** apstate, int argc, char* argv[]) {
     fread(mem, 0x8000, 1, rom_file); // Put only first bank in memory
     printf("LOADED ROM\n");
     if (cart_info()) return SDL_APP_FAILURE;
-    rom_file = fopen(rom_name, "rb");
+    rom_file = fopen(rom_loc, "rb");
     if (!rom_file);
     else fread(rom, (1LL << rom_size) * 0x8000, 1, rom_file);
     if (init_dsp()) return SDL_APP_FAILURE;
