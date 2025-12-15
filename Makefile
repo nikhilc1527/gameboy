@@ -2,12 +2,15 @@ CC = gcc
 CFLAGS = -Wall -g
 LDFLAGS =
 
-ifndef SDL3_DIR
-	$(error "SDL3_DIR is not set. Please set it to the SDL3 installation path")
+SDL3_PKG ?= sdl3
+PKG_CHECK := $(shell pkg-config --exists $(SDL3_PKG); echo $$?)
+ifeq ($(PKG_CHECK),0)
+	CFLAGS += $(shell pkg-config --cflags $(SDL3_PKG))
+	LDFLAGS += $(shell pkg-config --libs $(SDL3_PKG))
+else
+	$(error pkg-config could not find $(SDL3_PKG). Install SDL3 dev files or set SDL3_PKG)
 endif
 
-CFLAGS += -I$(SDL3_DIR)\include
-LDFLAGS += -L$(SDL3_DIR)\lib -lSDL3
 
 SRC = gbemu.c
 OBJ = $(SRC:.c=.o)

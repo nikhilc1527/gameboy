@@ -16,8 +16,8 @@
 #define KEY_LEFT SDLK_LEFT
 #define KEY_RIGHT SDLK_RIGHT
 
-char* rom_loc = "pokered.gb";
-char* boot_rom_loc = "bootrom.rom";
+char* rom_loc      = "./pokemon_red.gb";
+char* boot_rom_loc = "./dmg_boot.bin";
 int FCT_X = 3, FCT_Y = 3;
 int dis = 0; // enable disassembly
 int pokemon = 0;
@@ -121,6 +121,7 @@ SDL_Renderer* rnd;
 SDL_Event evt;
 
 void redraw();
+int parse_args(int argc, char* argv[]);
 
 void init_reg() {
     PC = 0;
@@ -3378,8 +3379,47 @@ int do_instr() {
     return 0;
 }
 
+int parse_args(int argc, char* argv[]) {
+    for (int i = 1; i < argc; i++) {
+        if (!strcmp(argv[i], "--rom") || !strcmp(argv[i], "-r")) {
+            if (i + 1 >= argc) {
+                printf("MISSING ARGUMENT FOR %s\n", argv[i]);
+                return 1;
+            }
+            rom_loc = argv[++i];
+        }
+        else if (!strcmp(argv[i], "--boot") || !strcmp(argv[i], "-b")) {
+            if (i + 1 >= argc) {
+                printf("MISSING ARGUMENT FOR %s\n", argv[i]);
+                return 1;
+            }
+            boot_rom_loc = argv[++i];
+        }
+        else if (!strcmp(argv[i], "--scale") || !strcmp(argv[i], "-s")) {
+            if (i + 1 >= argc) {
+                printf("MISSING ARGUMENT FOR %s\n", argv[i]);
+                return 1;
+            }
+            int s = atoi(argv[++i]);
+            if (s <= 0) {
+                printf("INVALID SCALE: %s\n", argv[i]);
+                return 1;
+            }
+            FCT_X = s;
+            FCT_Y = s;
+        }
+        else {
+            printf("UNKNOWN ARGUMENT: %s\n", argv[i]);
+            printf("USAGE: %s [-r|--rom <rom path>] [-b|--boot <boot rom path>] [-s|--scale <scale>]\n", argv[0]);
+            return 1;
+        }
+    }
+    return 0;
+}
+
 SDL_AppResult SDL_AppInit(void** apstate, int argc, char* argv[]) {
     printf("INITIALIZING\n");
+    if (parse_args(argc, argv)) return SDL_APP_FAILURE;
     init_reg();
     FILE* boot_rom_file;
     FILE* rom_file;
