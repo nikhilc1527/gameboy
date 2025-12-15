@@ -27,6 +27,7 @@ int pokemon = 0;
 #define SDL_MAIN_USE_CALLBACKS
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
@@ -303,7 +304,7 @@ void p_set_checksum() {
 
 // From pokemon string format to a string
 char* p_string_convert(int n, byte encoded[]) {
-
+  return 0; // TODO
 }
 
 byte no_mbc_read_rom(dbyte loc) {
@@ -3483,7 +3484,7 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* evt) {
 
 void SDL_AppQuit(void* appstate, SDL_AppResult result) {
     switch (result) {
-    case SDL_APP_SUCCESS:
+    case SDL_APP_SUCCESS: case SDL_APP_CONTINUE:
         printf("SUCCESS\n");
         break;
     case SDL_APP_FAILURE:
