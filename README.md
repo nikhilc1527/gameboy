@@ -58,8 +58,9 @@ This project is mostly educational and wasn't intended to be distributed. If you
 2. Since the bootrom is copyright protected, you will need to install it yourself. You can install the boot ROM [here](https://gbdev.gg8.se/files/roms/bootroms/dmg_boot.bin) (WARNING: directly download link. If you want to download it manually, it is the file called `dmg_boot.bin` in [this folder](https://gbdev.gg8.se/files/roms/bootroms/), taken from [here](https://gbdev.gg8.se/wiki/articles/Gameboy_Bootstrap_ROM#Contents_of_the_ROMs)).
 3. Dump the ROM file of whatever game you want to play to your computer. [GBxCart](https://www.gbxcart.com/) is an affordable cartridge dumper for the Gameboy that you can order on most online shopping websites. Downloading the ROM file from the internet is piracy and it is illegal to do.
 4. Find the variables named `rom_loc` and `boot_rom_loc` and set the variables to the file location of the game rom file and the boot rom file, respectively.
+5. Install [GNU make](https://www.gnu.org/software/make/) and run the command `make` in the folder you downloaded this repository.
 
-The emulator should now run correctly. If you have any issues, [open an issue](https://github.com/nishantc1527/gameboy/issues/new) on Github or email me at <nishantc1527@gmail.com>.
+You should have an exectuable called `gbemu` that you are able to run. If you have any issues, [open an issue](https://github.com/nishantc1527/gameboy/issues/new) on Github or email me at <nishantc1527@gmail.com>.
 
 # References
 
